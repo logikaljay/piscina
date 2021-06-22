@@ -31,6 +31,7 @@ import {
   kValue
 } from './common';
 import { version } from '../package.json';
+import { WriteStream } from 'tty';
 
 const cpuCount : number = (() => {
   try {
@@ -119,6 +120,8 @@ interface Options {
   taskQueue? : TaskQueue,
   niceIncrement? : number,
   trackUnmanagedFds? : boolean,
+  stderr?: WriteStream,
+  stdout?: WriteStream
 }
 
 interface FilledOptions extends Options {
@@ -573,8 +576,24 @@ class ThreadPool {
       execArgv: this.options.execArgv,
       resourceLimits: this.options.resourceLimits,
       workerData: this.options.workerData,
-      trackUnmanagedFds: this.options.trackUnmanagedFds
+      trackUnmanagedFds: this.options.trackUnmanagedFds,
+      stderr: this.options.stderr !== null,
+      stdout: this.options.stdout !== null
     });
+
+    if (this.options.stderr) {
+      // this is probably not the best way to silence the warning that appears in the console.
+      // there is probably something I am not aware of that this will impact
+      worker.stderr.setMaxListeners(this.workers.size);
+      worker.stderr.pipe(this.options.stderr);
+    }
+
+    if (this.options.stdout) {
+      // this is probably not the best way to silence the warning that appears in the console.
+      // there is probably something I am not aware of that this will impact
+      worker.stdout.setMaxListeners(this.workers.size);
+      worker.stdout.pipe(this.options.stdout);
+    }
 
     const { port1, port2 } = new MessageChannel();
     const workerInfo = new WorkerInfo(worker, port1, onMessage);
